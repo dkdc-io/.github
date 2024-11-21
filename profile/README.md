@@ -1,3 +1,3 @@
 # dkdc-io
 
-Code by Cody.
+Code by [Cody](https://github.com/lostmygithubaccount).
