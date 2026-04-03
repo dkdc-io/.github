@@ -1,0 +1,108 @@
+name: Release GitHub
+
+on:
+  workflow_call:
+    inputs:
+      binary:
+        description: "Binary name to package (omit for source-only release)"
+        type: string
+        default: ""
+      python:
+        description: "Include Python setup for build"
+        type: boolean
+        default: true
+      python-version:
+        description: "Python version"
+        type: string
+        default: "3.14"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    if: inputs.binary != ''
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-24.04-arm
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          - target: aarch64-apple-darwin
+            os: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - if: inputs.python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cache/uv
+            ~/Library/Caches/uv
+          key: build-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock', 'uv.lock') }}
+          restore-keys: build-${{ matrix.target }}-
+      - run: bin/setup
+      - run: rustup target add ${{ matrix.target }}
+      - run: bin/build-rs --release --target ${{ matrix.target }}
+      - name: Determine version
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Package
+        run: |
+          staging=$(mktemp -d)
+          cp target/${{ matrix.target }}/release/${{ inputs.binary }} "$staging/"
+          cp LICENSE "$staging/"
+          tar -czf ${{ inputs.binary }}-${{ steps.tag.outputs.version }}-${{ matrix.target }}.tar.gz -C "$staging" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.binary }}-${{ matrix.target }}
+          path: ${{ inputs.binary }}-*.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: Create Release
+    needs: build
+    if: always() && (needs.build.result == 'success' || needs.build.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Determine version
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+      - if: inputs.binary != ''
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -d artifacts ] && [ "$(ls artifacts/ 2>/dev/null)" ]; then
+            gh release create "${{ steps.tag.outputs.version }}" --repo "${{ github.repository }}" --title "${{ steps.tag.outputs.version }}" --generate-notes artifacts/*
+          else
+            gh release create "${{ steps.tag.outputs.version }}" --repo "${{ github.repository }}" --title "${{ steps.tag.outputs.version }}" --generate-notes
+          fi

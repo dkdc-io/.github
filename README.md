@@ -8,6 +8,7 @@ Shared CI/CD workflows and composite actions for the [dkdc-io](https://github.co
 |----------|-------------|------------|
 | `check.yml` | CI checks (Rust + optional Python) | `python` (bool), `python-version` |
 | `release-python.yml` | Build + publish wheels to PyPI via OIDC | `python-version` |
+| `release-github.yml` | GitHub Releases (binaries or source-only) | `binary`, `python`, `python-version` |
 
 ## Composite actions
 

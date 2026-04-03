@@ -19,6 +19,15 @@ Build and publish Python wheels + sdist to PyPI via OIDC.
 Inputs:
 - `python-version` (string, default: "3.14") — Python version
 
+### release-github.yml
+
+Create GitHub Releases with optional multi-platform binary builds.
+
+Inputs:
+- `binary` (string, default: "") — binary name to package (omit for source-only release)
+- `python` (boolean, default: true) — include Python setup for build
+- `python-version` (string, default: "3.14") — Python version
+
 ## Composite actions
 
 ### publish-crate
