@@ -1,0 +1,27 @@
+name: Publish Crate
+description: Publish a single crate to crates.io (idempotent)
+inputs:
+  crate:
+    description: Crate name to publish
+    required: true
+  sleep:
+    description: Seconds to sleep after publish (for index propagation)
+    default: "30"
+  last:
+    description: Skip sleep if this is the last crate
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        echo "Publishing ${{ inputs.crate }}..."
+        if cargo publish -p "${{ inputs.crate }}" 2>&1; then
+          echo "${{ inputs.crate }} published successfully"
+        else
+          echo "note: ${{ inputs.crate }} may already be published, skipping"
+        fi
+        if [ "${{ inputs.last }}" != "true" ]; then
+          echo "Waiting ${{ inputs.sleep }}s for crates.io index..."
+          sleep ${{ inputs.sleep }}
+        fi

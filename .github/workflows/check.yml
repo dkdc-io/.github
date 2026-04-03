@@ -1,0 +1,34 @@
+name: Check
+
+on:
+  workflow_call:
+    inputs:
+      python:
+        description: "Include Python checks"
+        type: boolean
+        default: true
+      python-version:
+        description: "Python version"
+        type: string
+        default: "3.14"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - if: inputs.python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cache/uv
+            target
+          key: check-${{ runner.os }}-${{ hashFiles('**/Cargo.lock', 'uv.lock') }}
+          restore-keys: check-${{ runner.os }}-
+      - run: bin/setup
+      - run: bin/check
