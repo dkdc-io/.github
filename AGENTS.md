@@ -14,7 +14,7 @@ Inputs:
 
 ### release-python.yml
 
-Build and publish Python wheels + sdist to PyPI via OIDC.
+Build Python wheels + sdist (check, build matrix, sdist). Does NOT publish — each repo adds a local publish job (PyPI doesn't support reusable workflows for trusted publishing).
 
 Inputs:
 - `python-version` (string, default: "3.14") — Python version
